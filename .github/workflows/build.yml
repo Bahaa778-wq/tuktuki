@@ -1,0 +1,50 @@
+name: Build Tuktuki APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Generate Project and Inject Code
+        run: |
+          cp main.dart /tmp/main.dart
+          flutter create --org com.tuktuki.app --project-name tuktuki app_project
+          cd app_project
+          flutter pub add shared_preferences
+          cp /tmp/main.dart lib/main.dart
+          sed -i 's/android:label="tuktuki"/android:label="تكتكي"/g' android/app/src/main/AndroidManifest.xml
+
+      - name: Build Release APK
+        working-directory: app_project
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Prepare APK File
+        run: cp app_project/build/app/outputs/flutter-apk/app-release.apk tuktuki.apk
+
+      - name: Publish Direct APK to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "تطبيق تكتكي جاهز للتنصيب (v1.0.${{ github.run_number }})"
+          files: tuktuki.apk
